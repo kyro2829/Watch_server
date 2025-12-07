@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nazareth Bahay Pag-ibig — Patient Dashboard</title>
+
+  <link rel="stylesheet" href="/static/style.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- REQUIRED for time-based charts -->
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+
+  <script src="/static/dashboard.js" defer></script>
+</head>
+
+<body>
+
+  <!-- FIXED HEADER -->
+  <header class="clinic-header">
+    <div class="clinic-brand">
+      <img src="/static/hospital-logo.png" class="brand-logo" alt="Nazareth Bahay Pag-ibig logo">
+      <div class="brand-text">
+        <div class="hospital-name">Nazareth Bahay Pag-ibig</div>
+        <div class="hospital-sub">Elderly Care Monitoring Center</div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="user-welcome">Patient Monitoring System</div>
+      <a href="/logout" class="btn secondary">Logout</a>
+    </div>
+  </header>
+
+  <!-- GLOBAL ALERT BAR -->
+  <div id="globalAlertBar" style="display:none;"></div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="main-grid">
+
+    <!-- LEFT PANEL -->
+    <aside class="panel-card">
+
+      <label>Select Patient:</label>
+      <select id="deviceSelect" onchange="switchPatient()" class="btn"
+        style="background:white;color:#062033;width:100%;margin-top:5px;"></select>
+
+      <div class="patient-row" style="margin-top:15px;">
+        <div class="patient-avatar">
+          <img id="patientPhoto" src="/static/patient-default.png" alt="Patient Photo">
+        </div>
+
+        <div>
+          <div id="patientName" class="patient-name">No patient selected</div>
+          <div id="patientID" class="patient-id">—</div>
+          <button class="btn small" onclick="renameDevice()">✏ Rename</button>
+        </div>
+      </div>
+
+      <input type="file" id="photoUpload" accept="image/*"
+        onchange="uploadPhoto()" class="btn small" style="margin-top:10px;width:100%;">
+
+      <div id="warningsBox" class="warnings" style="margin-top:15px;"></div>
+
+      <!-- QUICK STATS (UPDATED ORDER) -->
+      <section class="quick-stats" style="margin-top:20px;">
+
+        <!-- STATUS FIRST -->
+        <div class="qs-item" style="grid-column: span 2;">
+          <div class="qs-label">Status</div>
+          <div class="pills">
+            <span id="sleepValue" class="pill">--</span>
+            <span id="fallValue" class="pill">Normal</span>
+            <span id="seizureValue" class="pill">Normal</span>
+          </div>
+        </div>
+
+        <!-- TEMPERATURE SECOND -->
+        <div class="qs-item">
+          <div class="qs-label">Temperature</div>
+          <div id="tempValue" class="qs-value">--</div>
+        </div>
+
+        <!-- STEPS LAST -->
+        <div class="qs-item">
+          <div class="qs-label">Steps</div>
+          <div id="stepsValue" class="qs-value">--</div>
+        </div>
+
+      </section>
+
+    </aside>
+
+    <!-- CENTER PANEL -->
+    <section class="panel-card">
+      <h3>Activity</h3>
+
+      <!-- STEPS CHART -->
+      <div class="chart-wrap">
+        <canvas id="stepsChart"></canvas>
+      </div>
+
+      <!-- TEMPERATURE CHART (FIXED HEIGHT) -->
+      <div class="chart-wrap" style="margin-top:20px;height:250px;">
+        <div class="mini-title">Temperature History</div>
+        <canvas id="tempChart" style="height:100% !important;"></canvas>
+      </div>
+
+      <!-- RECENT EVENTS -->
+      <div class="events-header">
+        <h2>Recent Events</h2>
+
+        <div class="events-controls">
+          <select id="eventFilter">
+            <option value="all">All Events</option>
+            <option value="fall">Fall</option>
+            <option value="seizure">Seizure</option>
+            <option value="sleep">Sleep State</option>
+            <option value="steps">Steps</option>
+            <option value="temperature">Temperature</option>
+          </select>
+
+          <input type="date" id="dateFilter">
+          <button id="downloadPdfBtn" class="download-btn">Download</button>
+        </div>
+      </div>
+
+      <div id="eventsList" class="events-list"></div>
+
+      <!-- SLEEP CHART -->
+      <div class="chart-wrap" style="margin-top:20px;">
+        <div class="mini-title">Sleep History</div>
+        <canvas id="sleepChart"></canvas>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL -->
+    <aside class="panel-card">
+
+      <div id="alertControls" style="display:none;margin-bottom:20px;">
+        <button class="btn danger" onclick="clearAlert()">🔴 STOP ALERT</button>
+      </div>
+
+      <div class="contact-title">System Links</div>
+      <a href="/logs" class="btn" style="margin-top:10px;">📄 View Logs</a>
+
+      <!-- FALL COUNTERS - NEW -->
+      <div class="panel-card" style="margin-top:20px;">
+        <h3>Fall Statistics</h3>
+        <div style="margin-top:10px;font-size:16px;">
+          Today: <b id="fallToday">0</b><br>
+          This Week: <b id="fallWeek">0</b><br>
+          This Month: <b id="fallMonth">0</b>
+        </div>
+      </div>
+
+      <!-- SEIZURE COUNTERS -->
+      <div class="panel-card" style="margin-top:20px;">
+        <h3>Seizure Statistics</h3>
+        <div style="margin-top:10px;font-size:16px;">
+          Today: <b id="szToday">0</b><br>
+          This Week: <b id="szWeek">0</b><br>
+          This Month: <b id="szMonth">0</b>
+        </div>
+      </div>
+
+    </aside>
+
+  </main>
+
+  <!-- POPUP (Rename) -->
+  <div id="renamePopup" class="popup hidden">
+    <div class="popup-content">
+      <h3>Rename Patient</h3>
+      <input id="newDeviceName" placeholder="Enter new patient name">
+      <div class="popup-actions">
+        <button class="btn" onclick="submitRename()">Save</button>
+        <button class="btn secondary" onclick="closePopup()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
