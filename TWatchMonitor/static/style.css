@@ -1,0 +1,503 @@
+/* ================================================================
+   GLOBAL RESET + MEDICAL FONT (preserved original)
+================================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: "Inter", Arial, Helvetica, sans-serif;
+}
+
+body {
+    background: #f0f6fb; /* kept original */
+    color: #062033;
+    padding-top: 90px;
+}
+
+/* ================================================================
+   HEADER (original)
+================================================================= */
+.clinic-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 85px;
+    width: 100%;
+    background: #064b8c;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 45px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    z-index: 9999;
+}
+
+.brand-logo {
+    width: 60px;
+    height: 60px;
+    margin-right: 14px;
+}
+
+.clinic-brand {
+    display: flex;
+    align-items: center;
+}
+
+.hospital-name {
+    font-size: 26px;
+    font-weight: 700;
+}
+
+.hospital-sub {
+    font-size: 13px;
+    opacity: 0.9;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* ================================================================
+   DASHBOARD LAYOUT — MAXIMIZED WIDTH (original)
+================================================================= */
+.main-grid {
+    width: 98%;
+    max-width: 1600px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 330px 1fr 330px;
+    gap: 25px;
+    margin-top: 10px;
+}
+
+/* Compatibility addition:
+   some templates use `.container` and `.grid` naming — keep both */
+.container { max-width: 1200px; margin: 18px auto; padding: 16px; }
+.grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items:start; }
+
+/* ================================================================
+   CARD STYLE (More professional, hospital look) (original + added card variants)
+================================================================= */
+.panel-card {
+    background: white;
+    padding: 22px;
+    border-radius: 16px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+}
+
+/* Generic card used in new HTML structure */
+.card {
+    background:#fff;
+    border-radius:10px;
+    box-shadow: 0 6px 18px rgba(13, 27, 56, 0.04);
+    overflow:hidden;
+    border:1px solid rgba(15,23,42,0.03);
+}
+.card.small { padding:10px; }
+.card-header { padding:14px 16px; border-bottom:1px solid #f1f5f9; display:flex; justify-content:space-between; align-items:center; }
+.card-body { padding:14px 16px; }
+
+/* ================================================================
+   BUTTONS (Bigger + Modern) (original)
+================================================================= */
+.btn {
+    display: inline-block;
+    background: #0a5796;
+    padding: 10px 18px;
+    border-radius: 8px;
+    color: white;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.btn.small {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.btn.secondary {
+    background: #dae9f8;
+    color: #062033;
+}
+
+.btn.danger {
+    background: #d90429;
+}
+
+/* quick utility button used in top bar */
+.controls select, .controls button {
+    padding:6px 10px;
+    border-radius:6px;
+    border:1px solid #e6edf3;
+    background:#fff;
+    cursor:pointer;
+}
+
+/* ================================================================
+   PATIENT PHOTO (original)
+================================================================= */
+.patient-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    margin-top: 15px;
+    text-align: center;
+}
+
+.patient-avatar {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid #0a5796;
+}
+
+.patient-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* New profile-card (keeps original look but fits new HTML) */
+.profile-card { display:flex; gap:12px; align-items:center; padding:12px; }
+.profile-photo img { width:72px; height:72px; border-radius:10px; object-fit:cover; border:1px solid #e6edf3; }
+.profile-info h3 { font-size:16px; margin-bottom:6px; }
+.profile-actions .btn { display:inline-block; padding:6px 10px; border-radius:8px; background:#eef2ff; cursor:pointer; border:1px solid #e0e7ff; }
+
+/* ================================================================
+   QUICK STATS (original)
+================================================================= */
+.quick-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 20px;
+}
+
+.qs-item {
+    background: #e8f1ff;
+    padding: 14px;
+    text-align: center;
+    border-radius: 12px;
+}
+
+.qs-value {
+    font-size: 26px;
+    font-weight: 700;
+    margin-top: 6px;
+}
+
+.pills {
+    margin-top: 6px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+.pill {
+    padding: 5px 10px;
+    background: #dcecff;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.pill.red {
+    background: #ffb3b3;
+    color: #8b0000;
+}
+
+/* ================================================================
+   ALERT BUTTON BLINK (original)
+================================================================= */
+@keyframes flashRed {
+    0% { background:#c40000; }
+    50% { background:#ff3b3b; }
+    100% { background:#c40000; }
+}
+
+#alertControls .btn.danger {
+    width: 100%;
+    padding: 16px;
+    font-size: 20px;
+    animation: flashRed 0.55s infinite;
+}
+
+/* ================================================================
+   EVENTS LIST (preserved & augmented)
+================================================================= */
+.events-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.events-controls select,
+.events-controls input {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+    font-size: 15px;
+    margin-right: 8px;
+}
+
+.download-btn {
+    background: #0ea5e9;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.events-list {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px;
+    max-height: 520px; /* increased to match new layout */
+    overflow-y: auto;
+    display:flex; flex-direction:column; gap:8px;
+}
+
+.event-item {
+    padding: 10px 14px;
+    border-left: 4px solid #0a5796;
+    background: #f7faff;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+/* Styles used in updated event items */
+.event-item .event-type { font-weight:600; margin-bottom:4px; }
+.event-ts { color:#6b7280; font-size:12px; }
+
+/* ================================================================
+   CHART AREA — Fixed Heights (original + compatibility)
+================================================================= */
+.chart-wrap {
+    padding: 12px;
+    background: #ffffff;
+    border-radius: 14px;
+    border: 1px solid #d4e3f5;
+    margin-top: 12px;
+    height: 250px; /* FIXED HEIGHT */
+}
+
+#tempChart, #stepsChart, #sleepChart {
+    height: 100% !important;
+}
+
+/* New chart layout pieces */
+.chart-row { display:flex; gap:12px; margin-top:12px; }
+.chart-card { flex:1; background:#fbfdff; border-radius:8px; padding:10px; border:1px solid #eef2ff; }
+
+/* Overview stats used in new HTML */
+.overview-stats { display:flex; gap:18px; align-items:center; }
+.small-label { color:#6b7280; font-size:12px; margin-bottom:6px; }
+.big-value { font-weight:700; font-size:16px; color:#0f172a; }
+
+/* ================================================================
+   POPUP (original)
+================================================================= */
+.popup {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+}
+
+.popup.hidden { display: none; }
+
+.popup-content {
+    background: white;
+    padding: 24px;
+    width: 92%;
+    max-width: 380px;
+    border-radius: 14px;
+}
+
+.popup-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+/* ================================================================
+   GLOBAL ALERT BAR (original)
+================================================================= */
+#globalAlertBar {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    padding: 14px;
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
+    display: none;
+    color: white;
+    animation: alertFlash 1s infinite;
+}
+
+@keyframes alertFlash {
+    0% { background-color: #ff0000; }
+    50% { background-color: #8b0000; }
+    100% { background-color: #ff0000; }
+}
+
+.global-alert-btn {
+    background: white;
+    color: #8b0000;
+    padding: 6px 12px;
+    margin-left: 10px;
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* FIX HORIZONTAL SCROLL ISSUE (original) */
+body, html {
+    overflow-x: hidden !important;
+}
+
+/* Prevent main grid from stretching outside screen (original duplicates removed) */
+.main-grid {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    overflow-x: hidden;
+}
+
+/* Ensure right panel fits (original)
+   panel-card already defined above; keep max-width guard */
+.panel-card {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+/* ================================================================
+   RIGHT COLUMN STATS / PANEL (added)
+================================================================= */
+.stats-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:8px; }
+.stat-value { font-weight:700; font-size:18px; color:#0f172a; }
+
+/* Quick controls card inside right column */
+.card.panel-card { padding:12px; }
+
+/* small helper classes used in the new HTML */
+.muted { color:#6b7280; font-size:13px; }
+.sr-only { position:absolute; left:-10000px; width:1px; height:1px; top:auto; overflow:hidden; }
+
+/* Buttons in right column / quick controls */
+#toggleAlerts, #downloadEvents { padding:8px 12px; border-radius:8px; border: none; cursor:pointer; }
+#toggleAlerts { background:#f8fafc; border:1px solid #e6edf3; }
+#downloadEvents { background:#0ea5e9; color:white; }
+
+/* ================================================================
+   RESPONSIVE (added, compatible with original)
+================================================================= */
+@media (max-width: 1200px) {
+    .main-grid { grid-template-columns: 1fr 1fr; gap:12px; }
+}
+@media (max-width: 940px) {
+  /* single column layout for narrow screens (from earlier added rules) */
+  .grid { grid-template-columns: 1fr; }
+  .main-grid { grid-template-columns: 1fr; }
+  .right-column { order:2; }
+  .left-column { order:1; }
+}
+
+/* ================================================================
+   MISC SMALL STYLES (added)
+================================================================= */
+/* small spacing tweak for stats panels */
+.panel-card h3 { margin: 0 0 8px 0; }
+.panel-card b { font-size: 1.05em; }
+
+/* ensure the events list uses the full vertical space sensibly */
+.events-list { max-height: 520px; }
+
+/* ensure the footer or other small UI fits */
+.footer { margin-top:16px; text-align:center; color:#6b7280; font-size:13px; }
+
+/* ensure inputs/selects look consistent */
+.form-group select, .form-group input, .events-controls select, .events-controls input {
+    padding:8px; border-radius:8px; border:1px solid #e6edf3; background:white;
+}
+
+/* small visual styles for timeline/event details */
+.event-item div { line-height:1.25; }
+
+/* small focus states for accessibility */
+.controls select:focus, .controls button:focus, .form-group input:focus, .form-group select:focus {
+    outline: 3px solid rgba(10,87,150,0.12);
+    outline-offset: 2px;
+}
+
+/* end of merged stylesheet */
+
+/* ================================================================
+   BLURRED BACKGROUND FOR LOGIN PAGE ONLY
+================================================================ */
+body.login-bg {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Inter, Arial, sans-serif;
+    overflow: hidden;
+    position: relative;
+}
+
+/* ============================================================== */
+/* LOGIN BACKGROUND (blur)                                        */
+/* ============================================================== */
+body.login-bg {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Inter, Arial, sans-serif;
+    overflow: hidden;
+    position: relative;
+}
+
+body.login-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: url("/static/background.jpg") no-repeat center center / cover;
+    filter: blur(6px);
+    transform: scale(1.1);
+    z-index: -1;
+}
+
+body.login-bg .box {
+    position: relative;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(4px);
+    padding: 30px;
+    border-radius: 14px;
+    width: 320px;
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.25);
+}
