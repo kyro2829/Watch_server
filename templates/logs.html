@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Logs</title>
+<style>
+body {
+    background:#eaf2ff;
+    font-family: Arial, sans-serif;
+    margin: 0;
+}
+.box {
+    width: 90%;
+    margin: 40px auto;
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+h2 {
+    margin: 0;
+}
+.btn {
+    display: inline-block;
+    padding: 10px 20px;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s ease;
+}
+.btn.secondary {
+    background-color: #6c757d;
+}
+.btn.secondary:hover {
+    background-color: #5a6268;
+}
+.btn.primary {
+    background-color: #0ea5e9;
+    margin-right: 10px;
+}
+.btn.primary:hover {
+    background-color: #0284c7;
+}
+
+/* Alert Section */
+.alert-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    border: 2px solid #dc2626;
+}
+.alert-section h3 {
+    margin: 0 0 15px 0;
+    color: #dc2626;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.alert-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+.alert-card {
+    padding: 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid;
+}
+.alert-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.alert-card.seizure {
+    background: #fee2e2;
+    border-color: #dc2626;
+}
+.alert-card.fall {
+    background: #fef3c7;
+    border-color: #f59e0b;
+}
+.alert-card.sos {
+    background: #fce7f3;
+    border-color: #ec4899;
+}
+.alert-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.alert-type {
+    font-weight: bold;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.alert-type.seizure {
+    color: #dc2626;
+}
+.alert-type.fall {
+    color: #f59e0b;
+}
+.alert-type.sos {
+    color: #ec4899;
+}
+.alert-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+}
+.alert-badge.active {
+    background: #dc2626;
+    animation: pulse 2s infinite;
+}
+.alert-badge.cleared {
+    background: #6b7280;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+.alert-patient {
+    font-size: 18px;
+    font-weight: bold;
+    color: #1f2937;
+    margin-bottom: 5px;
+}
+.alert-time {
+    font-size: 13px;
+    color: #6b7280;
+}
+.alert-icon {
+    font-size: 24px;
+}
+.no-alerts {
+    text-align: center;
+    padding: 30px;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* Regular Logs Table */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+td, th {
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+    text-align: center;
+}
+th {
+    background: #0ea5e9;
+    color: white;
+    font-size: 16px;
+    letter-spacing: .5px;
+}
+tr:hover {
+    background: #f2f8ff;
+}
+tr.alert-row {
+    background: #fee2e2;
+    font-weight: bold;
+}
+tr.alert-row:hover {
+    background: #fecaca;
+}
+.clickable-row {
+    cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div class="box">
+<div class="header">
+<h2>📄 Device Logs</h2>
+<div>
+<a href="/" class="btn primary">← Dashboard</a>
+<a href="/logout" class="btn secondary">Logout</a>
+</div>
+</div>
+
+<!-- Active Alerts Section -->
+{% if active_alerts %}
+<div class="alert-section">
+<h3>
+<span style="font-size: 24px;">🚨</span>
+ACTIVE ALERTS ({{ active_alerts|length }})
+</h3>
+<div class="alert-grid">
+{% for alert in active_alerts %}
+<div class="alert-card {{ alert.type }}" onclick="navigateToPatient('{{ alert.device }}')">
+<div class="alert-card-header">
+<div class="alert-type {{ alert.type }}">
+<span class="alert-icon">{{ alert.icon }}</span>
+{{ alert.type.upper() }}
+</div>
+<span class="alert-badge active">ACTIVE</span>
+</div>
+<div class="alert-patient">{{ alert.display_name }}</div>
+<div class="alert-time">{{ alert.time }}</div>
+<div style="margin-top: 8px; font-size: 12px; color: #374151;">
+Click to view patient →
+</div>
+</div>
+{% endfor %}
+</div>
+</div>
+{% endif %}
+
+<!-- Recent Cleared Alerts -->
+{% if recent_cleared_alerts %}
+<div class="alert-section" style="border-color: #9ca3af; margin-top: 20px;">
+<h3 style="color: #6b7280;">
+<span style="font-size: 24px;">📋</span>
+Recently Cleared Alerts ({{ recent_cleared_alerts|length }})
+</h3>
+<div class="alert-grid">
+{% for alert in recent_cleared_alerts %}
+<div class="alert-card {{ alert.type }}" style="opacity: 0.7;" onclick="navigateToPatient('{{ alert.device }}')">
+<div class="alert-card-header">
+<div class="alert-type {{ alert.type }}">
+<span class="alert-icon">{{ alert.icon }}</span>
+{{ alert.type.upper() }}
+</div>
+<span class="alert-badge cleared">CLEARED</span>
+</div>
+<div class="alert-patient">{{ alert.display_name }}</div>
+<div class="alert-time">{{ alert.time }}</div>
+<div style="margin-top: 8px; font-size: 12px; color: #374151;">
+Cleared by: {{ alert.cleared_by or 'System' }}
+</div>
+</div>
+{% endfor %}
+</div>
+</div>
+{% endif %}
+
+{% if not active_alerts and not recent_cleared_alerts %}
+<div class="no-alerts">
+✅ No alerts - All patients are doing well!
+</div>
+{% endif %}
+
+<!-- All Logs Table -->
+<h3 style="margin-top: 40px; margin-bottom: 10px;">All Device Status Logs</h3>
+<table>
+<tr>
+    <th>Device</th>
+    <th>Temp</th>
+    <th>Steps</th>
+    <th>Fall</th>
+    <th>Seizure</th>
+    <th>Time</th>
+</tr>
+{% for row in logs %}
+<tr class="{% if row.alert_row %}alert-row{% endif %} clickable-row" onclick="navigateToPatient('{{ row.device }}')">
+    <td>{{ row.display_name or row.device }}</td>
+    <td>{{ row.temperature }}</td>
+    <td>{{ row.steps }}</td>
+    <td>
+        {% if row.fall == 1 %}
+            ⚠️ YES
+        {% else %}
+            No
+        {% endif %}
+    </td>
+    <td>
+        {% if row.seizure == 1 %}
+            ⚡ YES
+        {% else %}
+            No
+        {% endif %}
+    </td>
+    <td>{{ row.time }}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<script>
+function navigateToPatient(deviceId) {
+    // Navigate to dashboard and switch to the patient
+    window.location.href = '/?patient=' + encodeURIComponent(deviceId);
+}
+</script>
+</body>
+</html>
