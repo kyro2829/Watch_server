@@ -3,3 +3,6 @@ reportlab
 Werkzeug
 gunicorn
 itsdangerous==2.1.2
+supabase
+psycopg2-binary
+python-dotenv
