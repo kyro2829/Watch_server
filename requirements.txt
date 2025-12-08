@@ -1,6 +1,0 @@
-flask
-reportlab
-waitress
-Werkzeug
-gunicorn
-itsdangerous==2.1.2
