@@ -5,121 +5,73 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
 
-    <!-- Google Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
         body {
-            margin: 0;
-            font-family: "Inter", sans-serif;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
+            margin: 0; font-family: "Inter", sans-serif; height: 100vh;
+            display: flex; justify-content: center; align-items: center;
         }
-
-        /* Blurred background container */
         .background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url("/static/background.jpg") no-repeat center center/cover;
-            filter: blur(12px);         /* Strong blur */
-            transform: scale(1.1);      /* Prevents edge blur cut-off */
-            z-index: -1;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: url("/static/background.jpg") no-repeat center/cover;
+            filter: blur(12px); transform: scale(1.1); z-index: -1;
         }
-
         .login-card {
             background: rgba(255, 255, 255, 0.85);
-            padding: 40px;              /* Bigger card */
-            width: 400px;               /* Bigger width */
-            border-radius: 24px;        /* Larger radius */
-            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
-            backdrop-filter: blur(20px);
-            text-align: center;
+            padding: 40px; width: 400px; border-radius: 24px;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.25); text-align: center;
         }
-
-        h2 {
-            margin-top: 0;
-            margin-bottom: 25px;
-            font-size: 28px;
-            font-weight: 600;
-        }
-
-        input {
-            width: 100%;
-            padding: 14px 16px;
-            margin-bottom: 18px;
-            border-radius: 10px;
-            border: 1px solid #bfc7d1;
-            font-size: 16px;
-            outline: none;
-            transition: 0.2s;
-        }
-
-        input:focus {
-            border-color: #0085d8;
-            box-shadow: 0 0 0 4px rgba(0, 133, 216, 0.25);
-        }
-
-        .login-btn {
-            width: 100%;
-            background: #0085d8;
-            color: white;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            font-size: 17px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: background 0.2s;
-            margin-top: 5px;
-        }
-
-        .login-btn:hover {
-            background: #006bb0;
-        }
-
-        .links {
-            margin-top: 20px;
-            font-size: 15px;
-        }
-
-        .links a {
-            color: #007bff;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .links a:hover {
-            text-decoration: underline;
-        }
+        input { width: 100%; padding: 14px; margin-bottom: 18px; border-radius: 10px; border: 1px solid #bfc7d1; }
+        .login-btn { width: 100%; padding: 14px; background: #0085d8; color: white; border-radius: 12px; cursor: pointer; }
+        .error-msg { color: red; margin-top: 10px; font-size: 14px; }
     </style>
 </head>
 
 <body>
+<div class="background"></div>
 
-    <!-- Blurred background layer -->
-    <div class="background"></div>
+<div class="login-card">
+    <h2>Login</h2>
 
-    <div class="login-card">
-        <h2>Login</h2>
+    <form id="loginForm">
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button type="submit" class="login-btn">Login</button>
+    </form>
 
-        <form method="POST" action="/login">
-            <input type="text" name="username" placeholder="Username" required>
-            <input type="password" name="password" placeholder="Password" required>
+    <div id="errorBox" class="error-msg"></div>
 
-            <button type="submit" class="login-btn">Login</button>
-        </form>
-
-        <div class="links">
-            Don't have an account? <a href="/register">Create one</a><br>
-            <a href="/forgot-password">Forgot Password?</a>
-        </div>
+    <div class="links">
+        Don't have an account? <a href="/register">Create one</a> <br>
+        <a href="/forgot-password">Forgot Password?</a>
     </div>
+</div>
+
+<script>
+    const supabase = supabase.createClient(
+        "https://mscxzpgcoispmxzwyuof.supabase.co",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3h6cGdjb2lzcG14end5dW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxOTM0MzYsImV4cCI6MjA4MDc2OTQzNn0.7OMREJe6tWc6D5b57FVL245Tx7GQid3xgooqy_EKqqQ"
+    );
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        let { error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (error) {
+            document.getElementById("errorBox").innerText = error.message;
+        } else {
+            window.location.href = "/dashboard";
+        }
+    });
+</script>
 
 </body>
 </html>
