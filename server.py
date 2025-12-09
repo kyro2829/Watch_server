@@ -29,10 +29,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey123")
 
-# Supabase envs (must be set in Render if you want cloud backing)
-SUPABASE_URL = os.environ.get("https://mscxzpgcoispmxzwyuof.supabase.co")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3h6cGdjb2lzcG14end5dW9mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTE5MzQzNiwiZXhwIjoyMDgwNzY5NDM2fQ.AboGeQlIOoN0hnwP-UPNJMoVofJOztpqnLnTezgY6eI")
-SUPABASE_ANON_KEY = os.environ.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3h6cGdjb2lzcG14end5dW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxOTM0MzYsImV4cCI6MjA4MDc2OTQzNn0.7OMREJe6tWc6D5b57FVL245Tx7GQid3xgooqy_EKqqQ")  # optional
+# FIXED: Supabase configuration - use environment variables with fallback
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://mscxzpgcoispmxzwyuof.supabase.co")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3h6cGdjb2lzcG14end5dW9mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTE5MzQzNiwiZXhwIjoyMDgwNzY5NDM2fQ.AboGeQlIOoN0hnwP-UPNJMoVofJOztpqnLnTezgY6eI")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3h6cGdjb2lzcG14end5dW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxOTM0MzYsImV4cCI6MjA4MDc2OTQzNn0.7OMREJe6tWc6D5b57FVL245Tx7GQid3xgooqy_EKqqQ")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     raise RuntimeError("Supabase credentials not found. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars.")
@@ -342,6 +342,12 @@ def patient_photo_url(device_id):
             return url_for("static", filename=f"patient_photos/{device_id}.{ext}")
     return None
 
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXT
+
+def ensure_dirs():
+    os.makedirs(PATIENT_PHOTOS_DIR, exist_ok=True)
+
 # =========================================================
 # AUTH DECORATOR & ROUTES (wired to Supabase Auth)
 # =========================================================
@@ -398,6 +404,7 @@ def login():
             return render_template("login.html", error="Login error.")
     # GET
     return render_template("login.html")
+
 # ------------------- continue server.py (Part 2 of 2) -------------------
 
 # SIGNUP (create user via Supabase Auth)
