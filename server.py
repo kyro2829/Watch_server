@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-T-Watch Health Monitor --- Supabase-backed server (Part 1 of 2)
-- Uses Supabase for persistent users, devices, events and image storage
-- Keeps original routes + UI
+T-Watch Health Monitor --- Supabase-backed server (Corrected)
+Part 1 of 2
+- Supabase integration + local JSON/SQLite fallback
+- Fixed indentation, missing returns, signup/forgot issues, photo upload helpers
 """
 
 from flask import Flask, render_template, request, redirect, session, send_file, jsonify, url_for
@@ -18,7 +19,12 @@ from functools import wraps
 from werkzeug.utils import secure_filename
 
 # Supabase client
-from supabase import create_client, Client
+try:
+    from supabase import create_client, Client
+except Exception:
+    # If supabase isn't installed, we'll still keep the code runnable (fallback-only)
+    create_client = None
+    Client = None
 
 # ---------------------------
 # App & configuration
@@ -28,16 +34,24 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = os.environ.get("FLASK_SECRET", "supersecretkey123")
 
-# Supabase envs (must be set in Render)
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")  # optional
+# Supabase envs (must be set in Render if you want cloud backing)
+SUPABASE_URL = os.environ.get("https://mscxzpgcoispmxzwyuof.supabase.co")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3h6cGdjb2lzcG14end5dW9mIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTE5MzQzNiwiZXhwIjoyMDgwNzY5NDM2fQ.AboGeQlIOoN0hnwP-UPNJMoVofJOztpqnLnTezgY6eI")
+SUPABASE_ANON_KEY = os.environ.get("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3h6cGdjb2lzcG14end5dW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxOTM0MzYsImV4cCI6MjA4MDc2OTQzNn0.7OMREJe6tWc6D5b57FVL245Tx7GQid3xgooqy_EKqqQ")  # optional
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    raise RuntimeError("Supabase credentials not found. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY env vars.")
-
-# Create Supabase client (server/service role)
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+# Create Supabase client if credentials present and library available
+supabase = None
+if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY and create_client:
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    except Exception as e:
+        print("Warning: failed to create Supabase client:", e)
+        supabase = None
+else:
+    if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY):
+        print("Supabase credentials not set — running with local fallback only.")
+    else:
+        print("Supabase client library not installed — running with local fallback only.")
 
 # Local constants (kept for compatibility; JSON fallback is optional)
 DATA_FILE = os.path.join(BASE_DIR, "data.json")
@@ -92,7 +106,7 @@ def init_sqlite():
 def save_sqlite(device_id, ts, payload, event_type="status"):
     """
     Keep saving a local sqlite snapshot for compatibility and local debugging.
-    The app's canonical storage is Supabase.
+    The app's canonical storage is Supabase when available.
     """
     try:
         conn = get_db()
@@ -141,78 +155,97 @@ def save_sqlite(device_id, ts, payload, event_type="status"):
 # =========================================================
 def supa_get_user(username: str):
     """Return user row by username (or None)."""
-    resp = supabase.table("users").select("*").eq("username", username).limit(1).execute()
-    if resp.error:
-        print("supa_get_user error:", resp.error)
+    if not supabase:
         return None
-    data = resp.data or []
-    return data[0] if len(data) else None
+    try:
+        resp = supabase.table("users").select("*").eq("username", username).limit(1).execute()
+        if getattr(resp, "error", None):
+            print("supa_get_user error:", resp.error)
+            return None
+        data = resp.data or []
+        return data[0] if len(data) else None
+    except Exception as e:
+        print("supa_get_user exception:", e)
+        return None
 
 def supa_create_user(username: str, password: str):
     """Create a user record in Supabase users table."""
-    payload = {"username": username, "password": password}
-    resp = supabase.table("users").insert(payload).execute()
-    if resp.error:
-        print("supa_create_user error:", resp.error)
+    if not supabase:
         return None
-    return resp.data[0]
+    try:
+        payload = {"username": username, "password": password}
+        resp = supabase.table("users").insert(payload).execute()
+        if getattr(resp, "error", None):
+            print("supa_create_user error:", resp.error)
+            return None
+        return resp.data[0]
+    except Exception as e:
+        print("supa_create_user exception:", e)
+        return None
 
 def supa_upsert_device(device_id: str, snapshot: dict):
     """Upsert device snapshot into Supabase devices table."""
-    # Normalize boolean fields
-    snapshot_clean = {
-        "device_id": device_id,
-        "display_name": snapshot.get("display_name"),
-        "temperature": snapshot.get("temperature"),
-        "steps": snapshot.get("steps"),
-        "fall": bool(snapshot.get("fall")),
-        "seizure": bool(snapshot.get("seizure")),
-        "sos": bool(snapshot.get("sos")),
-        "sleep_state": bool(snapshot.get("sleep_state")),
-        "last_ts": snapshot.get("last_ts"),
-        "last_payload": snapshot.get("last_payload")
-    }
-    resp = supabase.table("devices").upsert(snapshot_clean, on_conflict="device_id").execute()
-    if resp.error:
-        print("supa_upsert_device error:", resp.error)
-    return resp
+    if not supabase:
+        return None
+    try:
+        snapshot_clean = {
+            "device_id": device_id,
+            "display_name": snapshot.get("display_name"),
+            "temperature": snapshot.get("temperature"),
+            "steps": snapshot.get("steps"),
+            "fall": bool(snapshot.get("fall")),
+            "seizure": bool(snapshot.get("seizure")),
+            "sos": bool(snapshot.get("sos")),
+            "sleep_state": bool(snapshot.get("sleep_state")),
+            "last_ts": snapshot.get("last_ts"),
+            "last_payload": snapshot.get("last_payload")
+        }
+        resp = supabase.table("devices").upsert(snapshot_clean, on_conflict="device_id").execute()
+        if getattr(resp, "error", None):
+            print("supa_upsert_device error:", resp.error)
+        return resp
+    except Exception as e:
+        print("supa_upsert_device exception:", e)
+        return None
 
 def supa_insert_event(device_id: str, event_type: str, payload: dict, ts: str = None):
     """Insert event into Supabase events table."""
-    row = {
-        "device_id": device_id,
-        "event_type": event_type,
-        "payload": payload,
-    }
-    if ts:
-        # store as timestamptz string; Supabase will accept ISO format
-        row["ts"] = ts
-    resp = supabase.table("events").insert(row).execute()
-    if resp.error:
-        print("supa_insert_event error:", resp.error)
-    return resp
+    if not supabase:
+        return None
+    try:
+        row = {
+            "device_id": device_id,
+            "event_type": event_type,
+            "payload": payload,
+        }
+        if ts:
+            row["ts"] = ts
+        resp = supabase.table("events").insert(row).execute()
+        if getattr(resp, "error", None):
+            print("supa_insert_event error:", resp.error)
+        return resp
+    except Exception as e:
+        print("supa_insert_event exception:", e)
+        return None
 
 def supa_upload_photo_from_file(patient_id: str, file_stream, filename: str):
     """
     Upload file to Supabase storage bucket 'patient_photos' and return public URL.
-    file_stream must be a bytes or file-like object.
+    file_stream must be bytes or a file-like object.
     """
-    # ensure bucket exists (bucket creation is usually done in Supabase dashboard)
+    if not supabase:
+        return None
     bucket = "patient_photos"
-    path = f"{patient_id}/{filename}"  # keep per-patient subfolder
+    path = f"{patient_id}/{filename}"
     try:
-        # supabase.storage.from_(bucket).upload returns a dict or error on supabase-py
-        # For safety, read bytes
         content = file_stream.read() if hasattr(file_stream, "read") else file_stream
         resp = supabase.storage.from_(bucket).upload(path, content, upsert=True)
-        # get public URL
         public = supabase.storage.from_(bucket).get_public_url(path)
-        public_url = public.get("publicUrl") or public.get("publicURL") or public.get("publicUrl")
-        # supabase-py sometimes wraps keys differently; try common keys
-        if isinstance(public_url, dict):
-            # if it's a full response, extract url
-            public_url = public_url.get("publicURL") or public_url.get("publicUrl")
-        return public_url
+        if isinstance(public, dict):
+            public_url = public.get("publicURL") or public.get("publicUrl") or public.get("public_url")
+            return public_url
+        # supabase-py variations
+        return getattr(public, "publicUrl", None) or getattr(public, "publicURL", None)
     except Exception as e:
         print("supa_upload_photo error:", e)
         return None
@@ -246,8 +279,11 @@ def save_data(data):
 
     # Try to upsert snapshots into Supabase for each device
     try:
+        if not supabase:
+            # nothing to sync
+            return data
         for device_id, entry in data.items():
-            if device_id == "_system_events": 
+            if device_id == "_system_events":
                 continue
             snapshot = {
                 "display_name": entry.get("display_name", device_id),
@@ -264,54 +300,11 @@ def save_data(data):
                 supa_upsert_device(device_id, snapshot)
             except Exception as e:
                 print("Warning: supa_upsert_device failed:", e)
+    except Exception as e:
+        print("save_data supa sync error:", e)
 
+    return data
 # ------------------- continue server.py (Part 2 of 2) -------------------
-
-def load_users():
-    """
-    Load users from Supabase. If Supabase is unavailable, fallback to local file.
-    """
-    try:
-        resp = supabase.table("users").select("*").execute()
-        if resp.error:
-            print("load_users supa error:", resp.error)
-            # fallback
-            _ensure_file(USERS_FILE, {"admin": "admin123"})
-            return json.load(open(USERS_FILE))
-        users = {}
-        for row in resp.data or []:
-            users[row.get("username")] = row.get("password")
-        if not users:
-            # ensure at least admin exists locally/supabase fallback
-            users["admin"] = "admin123"
-        return users
-    except Exception as e:
-        print("load_users exception:", e)
-        _ensure_file(USERS_FILE, {"admin": "admin123"})
-        return json.load(open(USERS_FILE))
-
-def save_users(users):
-    """
-    Save users to Supabase (upsert). Fallback to local file if Supabase fails.
-    users: dict username -> password
-    """
-    try:
-        # Convert dict to list of rows for upsert
-        rows = [{"username": username, "password": pwd} for username, pwd in users.items()]
-        # Upsert by username (Supabase upsert will require primary/unique key on username)
-        resp = supabase.table("users").upsert(rows, on_conflict="username").execute()
-        if resp.error:
-            print("save_users supa error:", resp.error)
-            # fallback to file
-            with _file_lock:
-                json.dump(users, open(USERS_FILE, "w"), indent=4)
-            return False
-        return True
-    except Exception as e:
-        print("save_users exception:", e)
-        with _file_lock:
-            json.dump(users, open(USERS_FILE, "w"), indent=4)
-        return False
 
 # =========================================================
 # UTILITY: patient photo URL helper (use Supabase public URL)
@@ -321,17 +314,17 @@ def patient_photo_url(device_id):
     Try Supabase public URL first. Fallback to static folder if exists.
     """
     try:
-        bucket = "patient_photos"
-        # Attempt to find file under patient folder; we'll check common extensions
-        for ext in ALLOWED_EXT:
-            path = f"{device_id}/{device_id}.{ext}"
-            # Use get_public_url
-            public = supabase.storage.from_(bucket).get_public_url(path)
-            # supabase-py returns {'publicUrl': '...'} or {'publicURL': '...'}
-            url = public.get("publicUrl") or public.get("publicURL") or public.get("public_url")
-            if url:
-                # check if object exists? Supabase public url will still be returned, but it's ok.
-                return url
+        if supabase:
+            bucket = "patient_photos"
+            for ext in ALLOWED_EXT:
+                path = f"{device_id}/{device_id}.{ext}"
+                public = supabase.storage.from_(bucket).get_public_url(path)
+                if isinstance(public, dict):
+                    url = public.get("publicUrl") or public.get("publicURL") or public.get("public_url")
+                else:
+                    url = getattr(public, "publicUrl", None) or getattr(public, "publicURL", None)
+                if url:
+                    return url
     except Exception as e:
         print("patient_photo_url supa error:", e)
 
@@ -339,11 +332,20 @@ def patient_photo_url(device_id):
     for ext in ALLOWED_EXT:
         p = os.path.join(PATIENT_PHOTOS_DIR, f"{device_id}.{ext}")
         if os.path.exists(p):
-            return url_for("static", filename=f"patient_photos/{device_id}.{ext}")
+            return url_for("static", filename=f"patient_photos/{device_id}.{ext}", _external=False)
     return None
 
 # =========================================================
-# AUTH DECORATOR & ROUTES (same as before, but wired to Supabase-backed users)
+# Basic helpers
+# =========================================================
+def ensure_dirs():
+    os.makedirs(PATIENT_PHOTOS_DIR, exist_ok=True)
+
+def allowed_file(name):
+    return "." in name and name.rsplit(".", 1)[1].lower() in ALLOWED_EXT
+
+# =========================================================
+# AUTH DECORATOR & ROUTES
 # =========================================================
 from flask import request as _flask_request
 
@@ -384,14 +386,18 @@ def signup():
             return render_template("signup.html", error="Username exists.")
         if pw != confirm:
             return render_template("signup.html", error="Passwords do not match.")
-        # create in supabase
-        created = supa_create_user(username, pw)
+        # create in supabase if available
+        created = None
+        try:
+            created = supa_create_user(username, pw)
+        except Exception as e:
+            print("supa_create_user exception:", e)
+            created = None
         if created is None:
             # fallback to local file
             users[username] = pw
             save_users(users)
         else:
-            # sync local cache file
             users[username] = pw
             save_users(users)
         return redirect("/login")
@@ -409,14 +415,17 @@ def forgot_password():
             return render_template("forgot_password.html", error="User not found.")
         if new_pw != confirm:
             return render_template("forgot_password.html", error="Passwords do not match.")
-        # update in supabase
+        # update in supabase if possible
         try:
-            resp = supabase.table("users").update({"password": new_pw}).eq("username", username).execute()
-            if resp.error:
-                print("forgot_password supa update error:", resp.error)
-                # fallback local
-                users[username] = new_pw
-                save_users(users)
+            if supabase:
+                resp = supabase.table("users").update({"password": new_pw}).eq("username", username).execute()
+                if getattr(resp, "error", None):
+                    print("forgot_password supa update error:", resp.error)
+                    users[username] = new_pw
+                    save_users(users)
+                else:
+                    users[username] = new_pw
+                    save_users(users)
             else:
                 users[username] = new_pw
                 save_users(users)
@@ -427,7 +436,7 @@ def forgot_password():
         return redirect("/login")
     return render_template("forgot_password.html")
 
-# ALIASES to fix template paths
+# Useful aliases to match alternate template routes
 @app.route("/register", methods=["GET", "POST"])
 def register_alias():
     return signup()
@@ -441,21 +450,30 @@ def forgot_password_alias():
 def logout():
     username = session.get("user")
     if username:
-        # record in Supabase events as a system event too
         try:
-            supa_insert_event("system", "logout", {"user": username}, ts=datetime.now().isoformat())
+            if supabase:
+                supa_insert_event("system", "logout", {"user": username}, ts=datetime.now().isoformat())
         except Exception as e:
             print("logout supa_insert_event error:", e)
+        # also keep local system event
+        data = load_data()
+        data.setdefault("_system_events", []).append({
+            "event": "logout",
+            "ts": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "payload": {"user": username}
+        })
+        data["_system_events"] = data["_system_events"][-200:]
+        save_data(data)
     session.clear()
     return redirect("/login")
 
 # =========================================================
-# UPLOAD endpoint (watch -> server -> supabase)
+# UPLOAD endpoint (watch -> server -> supabase/local)
 # =========================================================
 @app.route("/upload", methods=["POST"])
 def upload():
     """
-    Accepts JSON from the watch. Validates and writes to Supabase.
+    Accepts JSON from the watch. Validates and writes to Supabase (if available) and local cache.
     """
     incoming = None
     raw_bytes = None
@@ -541,7 +559,7 @@ def upload():
             dev["sos"] = 1
         dev["timestamp"] = ts
 
-        # event creation logic (same as before)
+        # event creation logic
         events_created = []
         event_type = incoming.get("event", "").lower() if "event" in incoming else None
         alert_triggered = False
@@ -615,8 +633,8 @@ def upload():
                 "last_ts": dev.get("timestamp"),
                 "last_payload": dev.get("last_raw")
             }
-            supa_upsert_device(device, snapshot)
-            # Also write sqlite snapshot locally for compatibility
+            if supabase:
+                supa_upsert_device(device, snapshot)
             save_sqlite(device, ts, snapshot, event_type="snapshot")
         except Exception as e:
             print("Warning: supa_upsert_device failed for snapshot:", e)
@@ -629,7 +647,7 @@ def upload():
         return jsonify({"error": "processing_error", "msg": str(ex)}), 500
 
 # =========================================================
-# UPLOAD PHOTO via Supabase Storage
+# UPLOAD PHOTO via Supabase Storage or local fallback
 # =========================================================
 @app.route("/upload_photo/<patient_id>", methods=["POST"])
 @login_required
@@ -642,13 +660,12 @@ def upload_photo(patient_id):
     if not filename or not allowed_file(filename):
         return jsonify({"error": "invalid_file_type"}), 400
 
-    # Upload to Supabase storage
     try:
-        # Save local copy temporarily
         file_bytes = photo.read()
-        public_url = supa_upload_photo_from_file(patient_id, io.BytesIO(file_bytes), filename)
+        public_url = None
+        if supabase:
+            public_url = supa_upload_photo_from_file(patient_id, io.BytesIO(file_bytes), filename)
         if not public_url:
-            # fallback: save locally
             ext = filename.rsplit(".", 1)[1].lower()
             save_name = f"{patient_id}.{ext}"
             save_path = os.path.join(PATIENT_PHOTOS_DIR, save_name)
@@ -656,7 +673,7 @@ def upload_photo(patient_id):
                 f.write(file_bytes)
             public_url = url_for("static", filename=f"patient_photos/{save_name}", _external=True)
 
-        # Update cache + Supabase devices table
+        # Update cache + events
         data = load_data()
         if patient_id not in data:
             data[patient_id] = {"display_name": patient_id, "events": []}
@@ -669,9 +686,10 @@ def upload_photo(patient_id):
         data[patient_id]["events"] = data[patient_id]["events"][-200:]
         save_data(data)
 
-        # Upsert device record with photo URL in Supabase devices
+        # Persist photo info to Supabase device snapshot if available
         try:
-            supa_upsert_device(patient_id, {"display_name": data[patient_id].get("display_name"), "last_payload": {"photo": public_url}})
+            if supabase:
+                supa_upsert_device(patient_id, {"display_name": data[patient_id].get("display_name"), "last_payload": {"photo": public_url}})
         except Exception as e:
             print("Warning: supa_upsert_device failed when saving photo:", e)
 
@@ -686,123 +704,122 @@ def upload_photo(patient_id):
 @app.route("/alerts_all")
 @login_required
 def alerts_all():
-    """
-    Return alerts by querying Supabase devices table (preferred).
-    """
     try:
-        resp = supabase.table("devices").select("*").execute()
-        if resp.error:
-            print("alerts_all supa error:", resp.error)
-            data = load_data()
-            # fallback to local
+        if supabase:
+            resp = supabase.table("devices").select("*").execute()
+            if getattr(resp, "error", None):
+                raise Exception(getattr(resp, "error", "supabase error"))
             alerts = []
-            for device_id, entry in data.items():
-                if device_id == "_system_events":
-                    continue
-                if entry.get("fall") == 1 or entry.get("seizure") == 1 or entry.get("sos") == 1:
+            for row in resp.data or []:
+                if row.get("fall") or row.get("seizure") or row.get("sos"):
                     alerts.append({
-                        "device_id": device_id,
-                        "name": entry.get("display_name", device_id),
-                        "fall": int(entry.get("fall", 0)),
-                        "seizure": int(entry.get("seizure", 0)),
-                        "sos": int(entry.get("sos", 0)),
-                        "time": entry.get("timestamp")
+                        "device_id": row.get("device_id"),
+                        "name": row.get("display_name") or row.get("device_id"),
+                        "fall": int(bool(row.get("fall"))),
+                        "seizure": int(bool(row.get("seizure"))),
+                        "sos": int(bool(row.get("sos"))),
+                        "time": row.get("last_ts")
                     })
             return jsonify(alerts)
-        # build alerts from supabase row data
-        alerts = []
-        for row in resp.data or []:
-            if row.get("fall") or row.get("seizure") or row.get("sos"):
-                alerts.append({
-                    "device_id": row.get("device_id"),
-                    "name": row.get("display_name") or row.get("device_id"),
-                    "fall": int(bool(row.get("fall"))),
-                    "seizure": int(bool(row.get("seizure"))),
-                    "sos": int(bool(row.get("sos"))),
-                    "time": row.get("last_ts")
-                })
-        return jsonify(alerts)
     except Exception as e:
-        print("alerts_all exception:", e)
-        return jsonify([])
+        print("alerts_all supa error:", e)
+
+    # fallback local
+    data = load_data()
+    alerts = []
+    for device_id, entry in data.items():
+        if device_id == "_system_events":
+            continue
+        if entry.get("fall") == 1 or entry.get("seizure") == 1 or entry.get("sos") == 1:
+            alerts.append({
+                "device_id": device_id,
+                "name": entry.get("display_name", device_id),
+                "fall": int(entry.get("fall", 0)),
+                "seizure": int(entry.get("seizure", 0)),
+                "sos": int(entry.get("sos", 0)),
+                "time": entry.get("timestamp")
+            })
+    return jsonify(alerts)
 
 @app.route("/patients")
 @login_required
 def patients():
     try:
-        resp = supabase.table("devices").select("device_id, display_name").execute()
-        if resp.error:
-            print("patients supa error:", resp.error)
-            data = load_data()
+        if supabase:
+            resp = supabase.table("devices").select("device_id, display_name").execute()
+            if getattr(resp, "error", None):
+                raise Exception(getattr(resp, "error"))
             result = []
-            for dev_id, entry in data.items():
-                if dev_id == "_system_events":
-                    continue
-                name = entry.get("display_name") or dev_id
-                photo = entry.get("photo") or patient_photo_url(dev_id)
+            for row in resp.data or []:
+                dev_id = row.get("device_id")
+                name = row.get("display_name") or dev_id
+                photo = patient_photo_url(dev_id)
                 result.append({"id": dev_id, "name": name, "photo": photo})
             result = sorted(result, key=lambda x: (x["name"] or "").lower())
             return jsonify(result)
-        result = []
-        for row in resp.data or []:
-            dev_id = row.get("device_id")
-            name = row.get("display_name") or dev_id
-            photo = patient_photo_url(dev_id)
-            result.append({"id": dev_id, "name": name, "photo": photo})
-        result = sorted(result, key=lambda x: (x["name"] or "").lower())
-        return jsonify(result)
     except Exception as e:
-        print("patients exception:", e)
-        return jsonify([])
+        print("patients supa error:", e)
+
+    data = load_data()
+    result = []
+    for dev_id, entry in data.items():
+        if dev_id == "_system_events":
+            continue
+        name = entry.get("display_name") or dev_id
+        photo = entry.get("photo") or patient_photo_url(dev_id)
+        result.append({"id": dev_id, "name": name, "photo": photo})
+    result = sorted(result, key=lambda x: (x["name"] or "").lower())
+    return jsonify(result)
 
 @app.route("/latest/<device_id>")
 @login_required
 def latest(device_id):
     try:
-        resp = supabase.table("devices").select("*").eq("device_id", device_id).limit(1).execute()
-        if resp.error or not resp.data:
-            data = load_data()
-            if device_id not in data:
-                return jsonify({"error": "not found"}), 404
-            entry = data[device_id].copy()
-            entry["photo"] = entry.get("photo") or patient_photo_url(device_id)
+        if supabase:
+            resp = supabase.table("devices").select("*").eq("device_id", device_id).limit(1).execute()
+            if getattr(resp, "error", None) or not resp.data:
+                raise Exception("supabase no data")
+            row = resp.data[0]
+            entry = dict(row)
+            entry["photo"] = patient_photo_url(device_id)
             return jsonify(entry)
-        row = resp.data[0]
-        entry = dict(row)
-        entry["photo"] = patient_photo_url(device_id)
-        return jsonify(entry)
     except Exception as e:
-        print("latest exception:", e)
-        return jsonify({"error": "internal"}), 500
+        print("latest supa error:", e)
+
+    data = load_data()
+    if device_id not in data:
+        return jsonify({"error": "not found"}), 404
+    entry = data[device_id].copy()
+    entry["photo"] = entry.get("photo") or patient_photo_url(device_id)
+    return jsonify(entry)
 
 @app.route("/events/<device_id>")
 @login_required
 def events_route(device_id):
     try:
-        resp = supabase.table("events").select("*").eq("device_id", device_id).order("ts", {"ascending": False}).limit(200).execute()
-        if resp.error:
-            print("events_route supa error:", resp.error)
-            data = load_data()
-            if device_id not in data:
-                return jsonify({"error": "not found"}), 404
-            return jsonify(data[device_id].get("events", []))
-        # return events as list
-        events = resp.data or []
-        # normalize structure to match frontend expectation
-        normalized = []
-        for ev in events:
-            normalized.append({
-                "event": ev.get("event_type") or ev.get("event"),
-                "ts": ev.get("ts"),
-                "payload": ev.get("payload")
-            })
-        return jsonify(normalized)
+        if supabase:
+            resp = supabase.table("events").select("*").eq("device_id", device_id).order("ts", {"ascending": False}).limit(200).execute()
+            if getattr(resp, "error", None):
+                raise Exception(getattr(resp, "error"))
+            events = resp.data or []
+            normalized = []
+            for ev in events:
+                normalized.append({
+                    "event": ev.get("event_type") or ev.get("event"),
+                    "ts": ev.get("ts"),
+                    "payload": ev.get("payload")
+                })
+            return jsonify(normalized)
     except Exception as e:
-        print("events_route exception:", e)
-        return jsonify([])
+        print("events_route supa error:", e)
+
+    data = load_data()
+    if device_id not in data:
+        return jsonify({"error": "not found"}), 404
+    return jsonify(data[device_id].get("events", []))
 
 # =========================================================
-# RENAME DEVICE (update supabase & local cache)
+# RENAME DEVICE
 # =========================================================
 @app.route("/rename_device", methods=["POST"])
 @login_required
@@ -834,19 +851,18 @@ def rename_device():
     if not new_name:
         return jsonify({"error": "bad_request", "msg": "new_name cannot be empty"}), 400
 
-    # Update local cache
     data = load_data()
     if device_id not in data:
         return jsonify({"error": "device_not_found", "msg": f"Device {device_id} not found"}), 404
 
     # Check for name collision in Supabase devices
     try:
-        resp = supabase.table("devices").select("device_id, display_name").eq("display_name", new_name).limit(1).execute()
-        if resp.data:
-            # if existing device has different id = conflict
-            for r in resp.data:
-                if r.get("device_id") != device_id:
-                    return jsonify({"error": "display_name_in_use", "msg": f"Name '{new_name}' is already in use"}), 409
+        if supabase:
+            resp = supabase.table("devices").select("device_id, display_name").eq("display_name", new_name).limit(1).execute()
+            if getattr(resp, "data", None):
+                for r in resp.data:
+                    if r.get("device_id") != device_id:
+                        return jsonify({"error": "display_name_in_use", "msg": f"Name '{new_name}' is already in use"}), 409
     except Exception as e:
         print("rename_device supa select error:", e)
 
@@ -869,8 +885,9 @@ def rename_device():
 
     # update supabase devices table
     try:
-        supabase.table("devices").update({"display_name": new_name}).eq("device_id", device_id).execute()
-        supa_insert_event(device_id, "rename", ev["payload"], ts=ev["ts"])
+        if supabase:
+            supabase.table("devices").update({"display_name": new_name}).eq("device_id", device_id).execute()
+            supa_insert_event(device_id, "rename", ev["payload"], ts=ev["ts"])
     except Exception as e:
         print("Warning: supabase update failed for rename:", e)
 
@@ -892,38 +909,41 @@ def dashboard():
 @app.route("/logs")
 @login_required
 def logs_page():
-    # Build logs from supabase devices/events if available
     logs = []
     active_alerts = []
     recent_cleared_alerts = []
 
-    # Try to fetch devices
+    # Try supabase devices
     try:
-        dev_resp = supabase.table("devices").select("*").execute()
-        devices = dev_resp.data or []
+        if supabase:
+            dev_resp = supabase.table("devices").select("*").execute()
+            if getattr(dev_resp, "error", None):
+                raise Exception(getattr(dev_resp, "error"))
+            devices = dev_resp.data or []
+        else:
+            devices = []
     except Exception as e:
         print("logs_page supa devices error:", e)
         devices = []
 
-    # Build logs list
-    for entry in devices:
-        dev = entry.get("device_id")
-        logs.append({
-            "device": dev,
-            "display_name": entry.get("display_name", dev),
-            "temperature": entry.get("temperature"),
-            "steps": entry.get("steps"),
-            "fall": entry.get("fall"),
-            "seizure": entry.get("seizure"),
-            "sos": entry.get("sos"),
-            "sleep_state": entry.get("sleep_state"),
-            "time": entry.get("last_ts"),
-            "last_raw": entry.get("last_payload"),
-            "alert_row": (entry.get("fall") == True or entry.get("seizure") == True)
-        })
-
-    # fallback: if no devices from supabase, use local cache
-    if not logs:
+    # Build logs list from supabase rows if present
+    if devices:
+        for entry in devices:
+            dev_id = entry.get("device_id")
+            logs.append({
+                "device": dev_id,
+                "display_name": entry.get("display_name", dev_id),
+                "temperature": entry.get("temperature"),
+                "steps": entry.get("steps"),
+                "fall": entry.get("fall"),
+                "seizure": entry.get("seizure"),
+                "sos": entry.get("sos"),
+                "sleep_state": entry.get("sleep_state"),
+                "time": entry.get("last_ts"),
+                "last_raw": entry.get("last_payload"),
+                "alert_row": (entry.get("fall") == True or entry.get("seizure") == True)
+            })
+    else:
         data = load_data()
         for dev, entry in data.items():
             if dev == "_system_events":
@@ -951,15 +971,18 @@ def logs_page():
         elif row.get("sos"):
             active_alerts.append({"device": row["device"], "display_name": row["display_name"], "type": "sos", "icon": "🆘", "time": row.get("time", "Unknown")})
 
-    # recent cleared alerts: try events query
+    # recent cleared alerts: try events query from supabase
+    events_all = []
     try:
-        ev_resp = supabase.table("events").select("*").order("ts", {"ascending": False}).limit(200).execute()
-        events_all = ev_resp.data or []
+        if supabase:
+            ev_resp = supabase.table("events").select("*").order("ts", {"ascending": False}).limit(200).execute()
+            if getattr(ev_resp, "error", None):
+                raise Exception(getattr(ev_resp, "error"))
+            events_all = ev_resp.data or []
     except Exception as e:
         print("logs_page events supa error:", e)
         events_all = []
 
-    # find recent alert_cleared events
     seen_devices = set()
     filtered_cleared = []
     for event in events_all:
@@ -969,7 +992,6 @@ def logs_page():
             if device in seen_devices:
                 continue
             # attempt to find previous alert type
-            # look in events_all for previous event for same device
             prev_type = None
             for prev in events_all:
                 if prev.get("device_id") == device:
@@ -980,7 +1002,7 @@ def logs_page():
             filtered_cleared.append({"device": device, "display_name": device, "type": prev_type or "alert_cleared", "time": event.get("ts"), "cleared_by": (event.get("payload") or {}).get("cleared_by")})
             seen_devices.add(device)
 
-    # sort logs by time
+    # sort logs
     logs_sorted = sorted(logs, key=lambda x: x["time"] or "", reverse=True)
 
     return render_template("logs.html", logs=logs_sorted, active_alerts=active_alerts, recent_cleared_alerts=filtered_cleared[:5])
@@ -993,10 +1015,9 @@ def health():
 # INIT & RUN
 # =========================================================
 def init_db():
-    # Local files for compatibility
     _ensure_file(DATA_FILE, {})
     _ensure_file(USERS_FILE, {"admin": "admin123"})
-    os.makedirs(PATIENT_PHOTOS_DIR, exist_ok=True)
+    ensure_dirs()
     try:
         init_sqlite()
     except Exception as e:
@@ -1014,4 +1035,5 @@ if __name__ == "__main__":
     print(" 🏥 Health Monitoring (Supabase-backed) - SERVER ONLINE")
     print(f" 🌐 Running on port {port}")
     print("=" * 70)
+    # Use Flask dev server for local testing. On Render, use Gunicorn and set the Start Command to: gunicorn server:app
     app.run(host="0.0.0.0", port=port, debug=False)
