@@ -2,49 +2,14 @@
 <html>
 <head>
 <title>Sign Up</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
-body{
-    background:#e5f1ff;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-    font-family:Arial;
-}
-.box{
-    background:white;
-    padding:30px;
-    border-radius:12px;
-    width:300px;
-    box-shadow:0 0 20px rgba(0,0,0,0.1);
-}
-input{
-    width:100%;
-    padding:10px;
-    margin-top:10px;
-    border-radius:6px;
-    border:1px solid #ccc;
-}
-button{
-    width:100%;
-    margin-top:15px;
-    padding:10px;
-    border:none;
-    background:#0284c7;
-    color:white;
-    font-size:16px;
-    border-radius:6px;
-    cursor:pointer;
-}
-.error{
-    color:red;
-    margin-top:10px;
-}
-a{
-    text-decoration:none;
-    color:#0284c7;
-    font-size:14px;
-}
+body{ background:#e5f1ff; display:flex; justify-content:center; align-items:center; height:100vh; font-family:Arial; }
+.box{ background:white; padding:30px; border-radius:12px; width:320px; box-shadow:0 0 20px rgba(0,0,0,0.1); }
+.error{ color:red; margin-top:10px; }
+.success{ color:green; margin-top:10px; }
 </style>
 </head>
 
@@ -52,20 +17,43 @@ a{
 <div class="box">
 <h3>Create Account</h3>
 
-<form method="post">
-    <input name="username" placeholder="Username" required>
-    <input name="password" type="password" placeholder="Password" required>
-    <input name="confirm" type="password" placeholder="Confirm Password" required>
+<form id="signupForm">
+    <input id="email" type="email" placeholder="Email" required>
+    <input id="password" type="password" placeholder="Password" required>
+    <input id="confirm" type="password" placeholder="Confirm Password" required>
     <button>Sign Up</button>
 
-    {% if error %}
-        <div class="error">{{ error }}</div>
-    {% endif %}
+    <div id="errorBox" class="error"></div>
+    <div id="successBox" class="success"></div>
 </form>
 
-<p style="margin-top:10px;">
-Already have an account? <a href="/login">Login</a>
-</p>
+<p>Already have an account? <a href="/login">Login</a></p>
 </div>
+
+<script>
+const supabase = supabase.createClient("https://mscxzpgcoispmxzwyuof.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zY3h6cGdjb2lzcG14end5dW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxOTM0MzYsImV4cCI6MjA4MDc2OTQzNn0.7OMREJe6tWc6D5b57FVL245Tx7GQid3xgooqy_EKqqQ");
+
+document.getElementById("signupForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+
+    let email = email.value;
+    let pw = password.value;
+    let cf = confirm.value;
+
+    if(pw !== cf){
+        errorBox.textContent = "Passwords do not match.";
+        return;
+    }
+
+    let { error } = await supabase.auth.signUp({ email, password: pw });
+
+    if(error){
+        errorBox.textContent = error.message;
+    } else {
+        successBox.textContent = "Check your email to confirm your account.";
+    }
+});
+</script>
+
 </body>
 </html>
